@@ -1,0 +1,63 @@
+openapi: 3.0.3
+info:
+  title: Wallet API (test target)
+  version: 1.0.0
+  description: Small wallet API used to practise fintech API, database and integration testing. Amounts are BDT strings with 2 decimals.
+servers:
+  - url: http://127.0.0.1:{port}
+    variables:
+      port: {default: "8080"}
+security:
+  - ApiKey: []
+paths:
+  /v1/wallets/{id}:
+    get:
+      summary: Get wallet balance
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      responses:
+        "200": {description: Wallet found}
+        "401": {description: Missing or invalid API key}
+        "404": {description: Wallet not found}
+  /v1/transfers:
+    post:
+      summary: Transfer money between wallets
+      parameters:
+        - {name: Idempotency-Key, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [from_wallet, to_wallet, amount]
+              properties:
+                from_wallet: {type: string}
+                to_wallet: {type: string}
+                amount: {type: string, example: "150.00"}
+                merchant: {type: boolean, description: "true applies the 1.85% merchant fee"}
+      responses:
+        "201": {description: Transfer created}
+        "200": {description: Duplicate request, original transaction returned}
+        "400": {description: Validation error (amount, missing field, same wallet, limit)}
+        "409": {description: Idempotency key reused with a different request}
+        "422": {description: Insufficient balance}
+  /v1/transfers/{id}/refund:
+    post:
+      summary: Refund a transfer
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer}}
+        - {name: Idempotency-Key, in: header, required: true, schema: {type: string}}
+      responses:
+        "201": {description: Refund created}
+        "409": {description: Already refunded or already settled}
+  /v1/merchants/{id}/settle:
+    post:
+      summary: Settle a merchant's unsettled transfers
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      responses:
+        "200": {description: Settlement summary (gross, fees, net)}
+components:
+  securitySchemes:
+    ApiKey: {type: apiKey, in: header, name: X-API-Key}
